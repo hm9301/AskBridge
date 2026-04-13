@@ -35,6 +35,11 @@ function getExt(filename: string): string {
   return filename.slice(filename.lastIndexOf('.')).toLowerCase()
 }
 
+function getTitle(filename: string): string {
+  const withoutExt = filename.slice(0, filename.lastIndexOf('.'))
+  return withoutExt.replace(/[_\-]+/g, ' ').trim()
+}
+
 function extractIpynbText(json: Record<string, unknown>): string {
   const cells = json.cells as Array<{ cell_type: string; source: string[] | string }> | undefined
   if (!cells) throw new Error('.ipynb 파일 구조를 인식할 수 없습니다.')
@@ -100,7 +105,8 @@ export default function InputSection({ content, onChange, isLoading }: InputSect
         throw new Error('파일에서 텍스트를 추출할 수 없습니다.')
       }
 
-      onChange(text)
+      const title = getTitle(file.name)
+      onChange(`# ${title}\n\n${text}`)
       setUploadedFileName(file.name)
     } catch (error) {
       setFileError(error instanceof Error ? error.message : '파일 처리 중 오류가 발생했습니다.')
