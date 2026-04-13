@@ -198,8 +198,8 @@ export default function InputSection({ content, onChange, isLoading }: InputSect
           placeholder="수업 자료 내용을 여기에 붙여넣기 하세요..."
           className="w-full p-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all" style={{ height: '160px' }}
         />
-        <div className="absolute bottom-3 right-3 text-xs text-gray-300">
-          {content.length.toLocaleString()}자
+        <div className={`absolute bottom-3 right-3 text-xs ${content.length > 20000 ? 'text-red-400 font-medium' : content.length > 16000 ? 'text-yellow-400' : 'text-gray-300'}`}>
+          {content.length.toLocaleString()} / 20,000자
         </div>
       </div>
     </div>

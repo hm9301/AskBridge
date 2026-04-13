@@ -46,6 +46,11 @@ export default function Home() {
       return
     }
 
+    if (content.length > 20000) {
+      setError(`수업 자료가 너무 깁니다. 20,000자 이하로 줄여주세요. (현재 ${content.length.toLocaleString()}자)`)
+      return
+    }
+
     setState('streaming')
     setObjectives([])
     setQuestions([])
