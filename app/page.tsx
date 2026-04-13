@@ -280,7 +280,7 @@ export default function Home() {
                 <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
                   <button
                     onClick={() => setActiveTab('objectives')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+                    className={`flex-1 flex items-center justify-center gap-1 px-1 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                       activeTab === 'objectives'
                         ? 'bg-white text-emerald-600 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
@@ -288,14 +288,14 @@ export default function Home() {
                   >
                     학습 목표
                     {objectives.length > 0 && (
-                      <span className="text-xs bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded-full">
+                      <span className="bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded-full text-xs leading-none">
                         {objectives.length}
                       </span>
                     )}
                   </button>
                   <button
                     onClick={() => setActiveTab('questions')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+                    className={`flex-1 flex items-center justify-center gap-1 px-1 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                       activeTab === 'questions'
                         ? 'bg-white text-blue-600 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
@@ -303,14 +303,14 @@ export default function Home() {
                   >
                     예상 질문
                     {questions.length > 0 && (
-                      <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">
+                      <span className="bg-blue-100 text-blue-600 px-1 py-0.5 rounded-full text-xs leading-none">
                         {questions.length}
                       </span>
                     )}
                   </button>
                   <button
                     onClick={() => setActiveTab('quizzes')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+                    className={`flex-1 flex items-center justify-center gap-1 px-1 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                       activeTab === 'quizzes'
                         ? 'bg-white text-violet-600 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
@@ -318,7 +318,7 @@ export default function Home() {
                   >
                     단답형 퀴즈
                     {quizzes.length > 0 && (
-                      <span className="text-xs bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full">
+                      <span className="bg-violet-100 text-violet-600 px-1 py-0.5 rounded-full text-xs leading-none">
                         {quizzes.length}
                       </span>
                     )}
