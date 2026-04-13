@@ -1,5 +1,8 @@
 # AskBridge — Claude 작업 규칙
 
+## 0. 프로젝트 개요
+AskBridge — 수업 자료를 업로드하면 AI가 학습 목표 / 예상 질문 / 단답형 퀴즈를 자동 생성하고 학생에게 공유할 수 있는 교육용 AI 솔루션.
+
 ## 1. 질문엔 바로 작업 금지
 사용자가 질문을 하면 답만 한다. 작업은 명시적으로 요청했을 때만 진행한다.
 작업이 필요한 경우 옵션을 제시하고 컨펌을 받은 후 진행한다.
@@ -17,3 +20,18 @@
 - 로직 수정 → node 스크립트 또는 curl로 검증
 - UI 수정 → 관련 코드 경로 추적
 - 서버 재시작 후 HTTP 200 확인 포함
+
+## 5. AI 협업 역할 정의
+Claude Code는 이 프로젝트에서 다음 역할을 담당한다.
+- 기획 검토 및 설계 의사결정 보조
+- 전체 코드 작성 및 리팩토링
+- 빌드 검증 및 배포 (GitHub / Vercel)
+- 기획 문서 및 README 작성
+
+## 6. 기술 스택 (컨텍스트 유지용)
+- Framework: Next.js 16 (App Router) + TypeScript
+- AI: Anthropic claude-sonnet-4-6 (스트리밍 + 프롬프트 캐싱)
+- Styling: Tailwind CSS
+- 파일 파싱: pdf-parse / mammoth / unzipper
+- 공유: LZString URL 압축
+- 배포: Vercel / GitHub (hm9301/AskBridge)
