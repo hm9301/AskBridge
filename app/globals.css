@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media print {
+  body * { visibility: hidden; }
+  #print-area { display: block !important; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 2rem;
+  }
+  #print-area > div + div {
+    page-break-before: always;
+    padding-top: 2rem;
+  }
+}
