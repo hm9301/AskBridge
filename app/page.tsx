@@ -406,7 +406,7 @@ export default function Home() {
               />
 
               {/* 대상 수준 선택 */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-gray-500">대상 수준 <span className="text-gray-300 font-normal">(선택)</span></p>
                   <button
