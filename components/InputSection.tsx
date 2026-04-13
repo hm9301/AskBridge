@@ -58,6 +58,14 @@ export default function InputSection({ content, onChange, isLoading }: InputSect
   const [fileError, setFileError] = useState<string | null>(null)
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
 
+  const loadSample = async () => {
+    const res = await fetch('/sample.txt')
+    const text = await res.text()
+    onChange(text)
+    setUploadedFileName(null)
+    setFileError(null)
+  }
+
   const processFile = async (file: File) => {
     setFileError(null)
     setIsFileLoading(true)
@@ -190,6 +198,13 @@ export default function InputSection({ content, onChange, isLoading }: InputSect
           <div className="flex-1 h-px bg-gray-200" />
           <span className="text-xs text-gray-400 font-medium">또는 직접 입력</span>
           <div className="flex-1 h-px bg-gray-200" />
+          <button
+            onClick={loadSample}
+            disabled={isLoading || isFileLoading}
+            className="text-xs text-blue-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            샘플 자료 불러오기
+          </button>
         </div>
         <textarea
           value={content}

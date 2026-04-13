@@ -1,0 +1,602 @@
+#**1. 그래프의 상태 업데이트**
+ - HumanMessage : 사용자(사람)의 메시지
+ - AIMessage : AI(LLM)의 메시지
+ - AnyMessage : HumanMessage, AIMessage를 포함하는 메시지
+
+```python
+!pip install langgraph
+```
+
+###1. 딕셔너리 타입과 TypeDict
+
+```
+- 딕셔너리 타입
+state = {
+  "messages" : [],
+  "step" : 1
+}
+
+- TypeDict
+{
+  "messages" : list
+  "step" : int
+}
+```
+
+
+
+
+###2. 랭그래프에서 TpyeDict을 사용하는 이유
+
+- 랭그래프에서는 State Graph라는 개념이 있음
+
+  ```
+  노드 + 노드 + 노드
+  ```
+  
+- state가 계속 전달됨
+  ```
+  #State에는 messages라는 key 가 있고 값은 AnyMessage 리스트다.
+  class state(TypeDict) :
+    messages : list[AnyMessage]
+  ```
+
+
+
+```python
+from langchain_core.messages import AnyMessage
+from typing_extensions import TypedDict
+```
+
+```python
+class State(TypedDict):
+    messages: list[AnyMessage]
+    extra_field: int
+```
+
+```python
+from langchain_core.messages import AIMessage
+```
+
+```python
+def node(state: State):
+    messages = state["messages"]
+    new_message = AIMessage("안녕하세요! 무엇을 도와드릴까요?")
+
+    # extra_feild :  일반 속성을 더함
+    # return {"messages": new_message, "extra_field": 10}
+    return {"messages": messages + [new_message], "extra_field": 10}
+```
+
+```python
+from langgraph.graph import StateGraph
+
+graph_builder = StateGraph(State)
+graph_builder.add_node("node", node)
+# set_entry_point : 그래프의 시작 노드를 지정하는 엣지 (START -> "node" -> END)
+graph_builder.set_entry_point("node")
+
+graph = graph_builder.compile()
+
+graph
+```
+
+```python
+from langchain_core.messages import HumanMessage
+
+result = graph.invoke({"messages": [HumanMessage("안녕")]})
+result
+```
+
+```python
+result["messages"]
+```
+
+#**2. 대화메시지 상태 누적 업데이트**
+[add_messages](https://reference.langchain.com/python/langgraph/graph/message/add_messages) 는 기존 메시지에서 추가 메시지를 병합하는 데 사용하는 함수로, 새로 들어온 메시지를 추가할 때 사용할 수 있는 리듀서 역할
+
+```python
+from typing_extensions import Annotated
+from langgraph.graph.message import add_messages
+```
+
+```python
+class State(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+    extra_field: int
+```
+
+```python
+def node(state: State):
+    messages = state["messages"]
+    new_message = AIMessage("안녕하세요! 무엇을 도와드릴까요?")
+
+    return {"messages": new_message, "extra_field": 10}
+```
+
+```python
+from langgraph.graph import StateGraph
+
+graph_builder = StateGraph(State)
+graph_builder.add_node("node", node)
+graph_builder.set_entry_point("node")
+graph = graph_builder.compile()
+
+graph
+```
+
+```python
+# role : 종류
+# user : 사용자 메세지
+# assistant : AI 메세지
+# system : 시스템 지시
+# tool : 도구 결과
+input_message = {"role": "user", "content": "안녕하세요."}
+
+#invoke : 그래프 실행 함수
+result = graph.invoke({"messages": [input_message]})
+
+for message in result["messages"]:
+# pretty_print()는 데이터나 객체를 보기 좋게(Pretty) 정리해서 출력하는 함수
+    message.pretty_print()
+```
+
+```python
+result["messages"]
+```
+
+```python
+#invoke : 하나의 요청에 대한 결과를 받을 때 까지 코드 실행 멈춤. 한번에 하나의 요청을 처리함
+graph.invoke({"messages": [input_message]})
+```
+
+```python
+#ainvoke : 비동기 처리로 여러 요청을 동시에 보낼 수 있음
+await graph.ainvoke({"messages": [input_message]})
+```
+
+stream : 중간 결과를 실시간으로 반환함
+
+- stream_mode="values" 각 단계의 현재 상태 값 출력
+- (Default)stream_mode="updates" 각 단계의 상태 업데이트만 출력
+- stream_mode="messages" 각 단계의 메시지 출력
+
+```python
+for chunk in graph.stream({"messages": [input_message]}, stream_mode="values"):
+    print(chunk)
+```
+
+```python
+for chunk in graph.stream({"messages": [input_message]}, stream_mode="values"):
+    print(chunk)
+    for state_key, state_value in chunk.items():
+        if state_key == "messages":
+            state_value[-1].pretty_print()
+```
+
+```python
+for chunk in graph.stream({"messages": [input_message]}, stream_mode="updates"):
+    print(chunk)
+    for node, value in chunk.items():
+        if node:
+            print(node)
+        if "messages" in value:
+            print(value['messages'].content)
+```
+
+```python
+for chunk_msg, metadata in graph.stream({"messages": [input_message]}, stream_mode="messages"):
+    print(chunk_msg)
+    print(chunk_msg.content)
+    print(metadata)
+    print(metadata["langgraph_node"])
+```
+
+astream : 비동기 방식으로 스트리밍 처리
+
+```python
+async for chunk_msg, metadata in graph.astream({"messages": [input_message]}, stream_mode="messages"):
+    print(chunk_msg)
+    print(chunk_msg.content)
+    print(metadata)
+    print(metadata["langgraph_node"])
+```
+
+#**3. 노드와 엣지 연결**
+
+```python
+from typing_extensions import TypedDict
+
+class State(TypedDict):
+    value_1: str
+    value_2: int
+```
+
+```python
+def step_1(state: State):
+    return {"value_1": state["value_1"]}
+
+def step_2(state: State):
+    current_value_1 = state["value_1"]
+    return {"value_1": f"{current_value_1} b"}
+
+def step_3(state: State):
+    return {"value_2": 10}
+```
+
+```python
+from langgraph.graph import START, StateGraph
+
+graph_builder = StateGraph(State)
+
+# 노드 추가
+graph_builder.add_node(step_1)
+graph_builder.add_node(step_2)
+graph_builder.add_node(step_3)
+
+# 엣지 추가
+graph_builder.add_edge(START, "step_1") # START ->1
+graph_builder.add_edge("step_1", "step_2") # 1-> 2
+graph_builder.add_edge("step_2", "step_3") # 2->3
+```
+
+```python
+graph = graph_builder.compile()
+graph
+```
+
+```python
+graph.invoke({"value_1": "apple"})
+```
+
+#**4. 노드와 엣지를 한번에 연결**
+
+```python
+graph_builder = StateGraph(State).add_sequence([step_1, step_2, step_3])
+graph_builder.add_edge(START, "step_1")
+
+graph = graph_builder.compile()
+
+graph.invoke({"value_1": "c"})
+```
+
+#**5. 병렬로 연결**
+
+<img src= 'https://img1.daumcdn.net/thumb/R1280x0/?scode=mtistory2&fname=https%3A%2F%2Fblog.kakaocdn.net%2Fdna%2FbKsmXN%2FbtsQoa6BiQH%2FAAAAAAAAAAAAAAAAAAAAAPpgPBweh6r0kpol4tFqhOR7MdAaIfiH-Lj4HXxoNYBU%2Fimg.png%3Fcredential%3DyqXZFxpELC7KVnFOS48ylbz2pIh7yKj8%26expires%3D1774969199%26allow_ip%3D%26allow_referer%3D%26signature%3Det57M4W%252B1rxuWT1yQVw6r0BDHw4%253D'>
+
+```python
+import operator
+from typing import Annotated, Any
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class State(TypedDict):
+    aggregate: Annotated[list, operator.add] # 업데이트 값이 뒤에 추가되도록 하는 operator.add 리듀서
+```
+
+```python
+def a(state: State):
+    print(f'Adding "A" to {state["aggregate"]}')
+    return {"aggregate": ["A"]}
+
+def b(state: State):
+    print(f'Adding "B" to {state["aggregate"]}')
+    return {"aggregate": ["B"]}
+
+def c(state: State):
+    print(f'Adding "C" to {state["aggregate"]}')
+    return {"aggregate": ["C"]}
+
+def d(state: State):
+    print(f'Adding "D" to {state["aggregate"]}')
+    return {"aggregate": ["D"]}
+```
+
+```python
+graph_builder = StateGraph(State)
+
+# 노드 추가
+graph_builder.add_node(a)
+graph_builder.add_node(b)
+graph_builder.add_node(c)
+graph_builder.add_node(d)
+```
+
+```python
+# 엣지 추가
+graph_builder.add_edge(START, "a")
+graph_builder.add_edge("a", "b") # a -> b
+graph_builder.add_edge("a", "c") # a -> c
+graph_builder.add_edge("b", "d") # b -> d
+graph_builder.add_edge("c", "d") # c -> d
+graph_builder.add_edge("d", END)
+graph = graph_builder.compile()
+
+graph
+```
+
+```python
+graph.invoke({"aggregate":[]})
+```
+
+#**6. 조건부 엣지 병렬 연결**
+
+<img src='https://img1.daumcdn.net/thumb/R1280x0/?scode=mtistory2&fname=https%3A%2F%2Fblog.kakaocdn.net%2Fdna%2FIHeX1%2FbtsQqoQbMcg%2FAAAAAAAAAAAAAAAAAAAAAI-WYn3hoGJZH0YGGZUAjDY2Xcsn6rtN7Qei9VUmGo2X%2Fimg.png%3Fcredential%3DyqXZFxpELC7KVnFOS48ylbz2pIh7yKj8%26expires%3D1774969199%26allow_ip%3D%26allow_referer%3D%26signature%3D2379LDy77wPIiHWUYKLbs2LPZvQ%253D'>
+
+```python
+import operator
+from typing import Annotated, Sequence
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class State(TypedDict):
+    aggregate: Annotated[list, operator.add]
+    which: str
+```
+
+```python
+def a(state: State):
+    print(f'Adding "A" to {state["aggregate"]}')
+    return {"aggregate": ["A"]}
+
+def b(state: State):
+    print(f'Adding "B" to {state["aggregate"]}')
+    return {"aggregate": ["B"]}
+
+def c(state: State):
+    print(f'Adding "C" to {state["aggregate"]}')
+    return {"aggregate": ["C"]}
+
+def d(state: State):
+    print(f'Adding "D" to {state["aggregate"]}')
+    return {"aggregate": ["D"]}
+
+def e(state: State):
+    print(f'Adding "E" to {state["aggregate"]}')
+    return {"aggregate": ["E"]}
+```
+
+```python
+graph_builder = StateGraph(State)
+graph_builder.add_node(a)
+graph_builder.add_node(b)
+graph_builder.add_node(c)
+graph_builder.add_node(d)
+graph_builder.add_node(e)
+graph_builder.add_edge(START, "a")
+```
+
+```python
+# bc 혹은 cd 로 라우트를 결정하는 함수
+def route_bc_or_cd(state: State) -> Sequence[str]:
+    if state["which"] == "cd":
+        return ["c", "d"]
+    return ["b", "c"]
+
+intermediates = ["b", "c", "d"]
+# add_conditional_edges : 노드 다음에 실행할 노드를 조건 함수로 결정
+graph_builder.add_conditional_edges(
+    "a",
+    route_bc_or_cd,
+    intermediates,
+)
+```
+
+```python
+for node in intermediates:
+    graph_builder.add_edge(node, "e")
+
+graph_builder.add_edge("e", END)
+graph = graph_builder.compile()
+graph
+```
+
+```python
+graph.invoke({"aggregate": [], "which": "bc"})
+```
+
+```python
+graph.invoke({"aggregate": [], "which": "cd"})
+```
+
+#**7. 조건과 반복**
+
+<img src= 'https://img1.daumcdn.net/thumb/R1280x0/?scode=mtistory2&fname=https%3A%2F%2Fblog.kakaocdn.net%2Fdna%2FexNpm9%2FbtsQqoil95F%2FAAAAAAAAAAAAAAAAAAAAAIPncRoH-KNiTSy0fHLkuCYoGImVqZSYLqCJFGTP-wrG%2Fimg.png%3Fcredential%3DyqXZFxpELC7KVnFOS48ylbz2pIh7yKj8%26expires%3D1774969199%26allow_ip%3D%26allow_referer%3D%26signature%3D7XPcTIf3uYOEuTyJu5Y2j40yDEk%253D'>
+
+```python
+import operator
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class State(TypedDict):
+    aggregate: Annotated[list, operator.add]
+```
+
+```python
+def a(state: State):
+    print(f'Node A 처리 중 현재 상태값 : {state["aggregate"]}')
+    return {"aggregate": ["A"]}
+
+
+def b(state: State):
+    print(f'Node B 처리 중 현재 상태값 : {state["aggregate"]}')
+    return {"aggregate": ["B"]}
+
+
+graph_builder = StateGraph(State)
+graph_builder.add_node(a)
+graph_builder.add_node(b)
+```
+
+```python
+def route(state: State):
+    if len(state["aggregate"]) < 7:
+        return "b"
+    else:
+        return END
+
+
+graph_builder.add_edge(START, "a")
+graph_builder.add_conditional_edges("a", route, ["b", END])
+graph_builder.add_edge("b", "a")
+graph = graph_builder.compile()
+
+graph
+```
+
+```python
+import requests, zlib, base64
+from IPython.display import Image
+
+# Mermaid 코드 추출
+code = graph.get_graph().draw_mermaid()
+
+# 압축·인코딩 후 Kroki 요청
+encoded = base64.urlsafe_b64encode(zlib.compress(code.encode())).decode()
+url = f"https://kroki.io/mermaid/png/{encoded}"
+resp = requests.get(url)
+display(Image(resp.content))
+```
+
+```python
+graph.invoke({"aggregate": []})
+```
+
+```python
+from langgraph.errors import GraphRecursionError
+# GraphRecursionError 로 에러를 반환하는 방법
+try:
+    graph.invoke({"aggregate": []}, config={"recursion_limit": 4})
+except GraphRecursionError: # 반복 종료 조건에 도달할 수 없는 경우
+    print("Recursion Error")
+```
+
+#**8. 조건에 따른 반복 처리하기**
+
+<img src= 'https://img1.daumcdn.net/thumb/R1280x0/?scode=mtistory2&fname=https%3A%2F%2Fblog.kakaocdn.net%2Fdna%2Fdrp6dk%2FbtsQoqO213W%2FAAAAAAAAAAAAAAAAAAAAACbLnCZ6cvYoZLtwmeOmdEtVH7cYJLals8GjOOMl45pz%2Fimg.png%3Fcredential%3DyqXZFxpELC7KVnFOS48ylbz2pIh7yKj8%26expires%3D1774969199%26allow_ip%3D%26allow_referer%3D%26signature%3DGhmniuUIB5pnuOxVfgFilZuWhWw%253D'>
+
+```python
+import operator
+from typing import Annotated, Literal
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class State(TypedDict):
+    aggregate: Annotated[list, operator.add]
+```
+
+```python
+def a(state: State):
+    print(f'Node A 처리 중 현재 상태값 : {state["aggregate"]}')
+    return {"aggregate": ["A"]}
+
+def b(state: State):
+    print(f'Node B 처리 중 현재 상태값 : {state["aggregate"]}')
+    return {"aggregate": ["B"]}
+
+def c(state: State):
+    print(f'Node C 처리 중 현재 상태값 : {state["aggregate"]}')
+    return {"aggregate": ["C"]}
+
+def d(state: State):
+    print(f'Node D 처리 중 현재 상태값 : {state["aggregate"]}')
+    return {"aggregate": ["D"]}
+
+graph_builder = StateGraph(State)
+graph_builder.add_node(a)
+graph_builder.add_node(b)
+graph_builder.add_node(c)
+graph_builder.add_node(d)
+```
+
+```python
+def route(state: State) -> Literal["b", END]:
+    if len(state["aggregate"]) < 7:
+        return "b"
+    else:
+        return END
+
+
+graph_builder.add_edge(START, "a")
+graph_builder.add_conditional_edges("a", route)
+graph_builder.add_edge("b", "c")
+graph_builder.add_edge("b", "d")
+graph_builder.add_edge(["c", "d"], "a")
+graph = graph_builder.compile()
+```
+
+```python
+result = graph.invoke({"aggregate": []})
+```
+
+#**9. 사용자 입력에 따른 반복 조건 설정**
+
+<img src= 'https://img1.daumcdn.net/thumb/R1280x0/?scode=mtistory2&fname=https%3A%2F%2Fblog.kakaocdn.net%2Fdna%2FW6D61%2FbtsQrJlLxdN%2FAAAAAAAAAAAAAAAAAAAAAP-0lx0tesNGzWsIggu1h7tH9Kp5d3qGQ_yTD39LBiDE%2Fimg.png%3Fcredential%3DyqXZFxpELC7KVnFOS48ylbz2pIh7yKj8%26expires%3D1774969199%26allow_ip%3D%26allow_referer%3D%26signature%3DDjcR%252BLev61HL%252FUKYyKPSteaeHHA%253D'>
+
+```python
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.graph.message import add_messages
+
+class State(TypedDict):
+    human_messages: Annotated[list[HumanMessage], add_messages]
+    ai_messages: Annotated[list[AIMessage], add_messages]
+    retry_num : int
+```
+
+```python
+def chatbot(state:State):
+    retry_num = state["retry_num"]
+    user_input = input(f"(현재 {retry_num}번째 답변) 사용자 입력: ")
+    ai_message = AIMessage(f"{retry_num}번째 답변중!")
+
+    return {"human_messages": [HumanMessage(content=user_input)], "ai_messages": [ai_message]}
+
+def retry(state: State):
+    return {"retry_num" : state["retry_num"] + 1}
+
+graph_builder = StateGraph(State)
+graph_builder.add_node("chatbot", chatbot)
+graph_builder.add_node("retry", retry)
+```
+
+```python
+def route(state: State):
+    if "반복" in state["human_messages"][-1].content:
+        return "retry"
+    else:
+        return END
+
+
+graph_builder.add_edge(START, "chatbot")
+graph_builder.add_conditional_edges("chatbot", route)
+graph_builder.add_edge("retry", "chatbot")
+graph = graph_builder.compile()
+```
+
+```python
+# START -> chatbot -> retry -> chatbot
+# invoke() : 최종값
+# stream() : 단계별로 반환
+for chunk in graph.stream({"human_messages" : "반복", "retry_num": 0}, stream_mode="updates"):
+    print(chunk)
+    print(chunk.items())
+    for node, value in chunk.items():
+        if node:
+            print(f"노드 : {node}")
+        # if "messages" in value:
+        #     print(f"messages :{value['messages'].content}")
+        if "human_messages" in value:
+          for msg in value["human_messages"]:
+            print(f"human : {msg.content}")
+        if "ai_messages" in value:
+          for msg in value["ai_messages"]:
+            print(f"ai : {msg.content}")
+```
+
+```python
+2graph.invoke({"human_messages" : "반복", "retry_num": 0})
+```
